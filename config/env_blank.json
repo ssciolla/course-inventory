@@ -38,5 +38,5 @@
     "user": "",
     "password": ""
   },
-  "APPEND_TABLE_NAMES": ["job_run", "data_source_status"]
+  "APPEND_TABLE_NAMES": []
 }
