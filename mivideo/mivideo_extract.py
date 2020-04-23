@@ -13,9 +13,11 @@ import pandas as pd
 from google.cloud import bigquery
 from google.oauth2 import service_account
 from sqlalchemy.engine import ResultProxy
+from sqlalchemy.orm import sessionmaker
 
 import mivideo.queries as queries
 from db.db_creator import DBCreator
+from db.schema import MivideoMediaStartedHourly
 from environ import CONFIG_DIR, CONFIG_PATH, ENV
 from vocab import ValidDataSourceName
 
@@ -113,7 +115,19 @@ class MiVideoExtract(object):
 
             logger.debug(f'"{tableName}" - Saving to table...')
 
-            dfCourseEvents.to_sql(tableName, self.appDb.engine, if_exists='append', index=False)
+            eventDicts = dfCourseEvents.to_dict(orient='records')
+            for eventDict in eventDicts:
+                eventDict['event_time_utc_latest'] = eventDict['event_time_utc_latest'].to_pydatetime()
+
+            Session = sessionmaker(bind=self.appDb.engine)
+            session = Session()
+
+            session.bulk_insert_mappings(
+                MivideoMediaStartedHourly,
+                eventDicts
+            )
+            session.commit()
+            # dfCourseEvents.to_sql(tableName, self.appDb.engine, if_exists='append', index=False)
 
             logger.debug(f'"{tableName}" - Saved.')
         else:
