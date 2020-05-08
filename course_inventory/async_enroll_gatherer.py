@@ -176,13 +176,36 @@ class AsyncEnrollGatherer:
 
         # Seems like we shouldn't have to drop duplicates for enrollments, but once one
         # duplicate broke the process
-        enrollment_df = pd.DataFrame(enrollment_records)
-        enrollment_count = len(enrollment_df)
-        enrollment_df = enrollment_df.drop_duplicates(subset=['canvas_id'], keep='last')
-        logger.info(f'{len(enrollment_df) - enrollment_count} enrollment records were dropped')
 
-        user_df = pd.DataFrame(user_records).drop_duplicates(subset=['canvas_id'], keep='last')
+        # Testing enrollment dropping
+        enrollment_df = pd.DataFrame(enrollment_records)
+        e_series = enrollment_df.iloc[50].copy()
+        e_series['role_type'] = 'NotARealRoleType'
+        enrollment_df = enrollment_df.append(e_series)
+        logger.info(enrollment_df.iloc[-1])
+        orig_enrollment_count = len(enrollment_df)
+        # enrollment_df = enrollment_df.drop_duplicates()
+        enrollment_df = enrollment_df.drop_duplicates(subset=['canvas_id'], keep='last')
+        logger.info(f'{orig_enrollment_count - len(enrollment_df)} enrollment records were dropped')
+
+        # Testing user dropping
+        user_df = pd.DataFrame(user_records)
+        u_series = user_df.iloc[50].copy()
+        u_series['name'] = 'Bilbo Baggins'
+        user_df = user_df.append(u_series)
+        logger.info(user_df.iloc[-1])
+        # user_df = user_df.drop_duplicates()
+        user_df = user_df.drop_duplicates(subset=['canvas_id'], keep='last')
+    
+        # Testing section dropping
+        section_df = pd.DataFrame(section_records)
+        s_series = section_df.iloc[50].copy()
+        s_series['name'] = 'Fun Times in Bablyon'
+        section_df = section_df.append(s_series)
+        logger.info(section_df.iloc[-1])
+        # section_df = section_df.drop_duplicates()
         section_df = pd.DataFrame(section_records).drop_duplicates(subset=['canvas_id'], keep='last')
+
         return (enrollment_df, user_df, section_df)
 
     def gather(self) -> None:
