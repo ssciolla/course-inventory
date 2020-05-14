@@ -1,13 +1,16 @@
-from sqlalchemy import BigInteger, \
-                       Column, \
-                       Date, \
-                       DateTime, \
-                       ForeignKey, \
-                       Integer, \
-                       String
+from sqlalchemy import (
+                    BigInteger,
+                    Column,
+                    Date,
+                    DateTime,
+                    ForeignKey,
+                    Integer,
+                    String
+                )
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+
 
 # ORM Tutorial
 # https://docs.sqlalchemy.org/en/13/orm/tutorial.html
@@ -26,7 +29,11 @@ class Term(Base):
 
     course = relationship('Course', back_populates='term')
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<Term(canvas_id={self.canvas_id}, name={self.name}, ' +
+            f'sis_id={self.sis_id}, start_at={self.start_at}, end_at={self.end_at})>'
+        )
 
 
 class Course(Base):
@@ -45,20 +52,13 @@ class Course(Base):
     enrollment = relationship('Enrollment', back_populates='course')
     term = relationship('Term', back_populates='course')
 
-#   def __repr__(self):
-
-
-class User(Base):
-    __tablename__ = 'user'
-
-    canvas_id = Column(BigInteger, primary_key=True)
-    name = Column(String(100))
-    sis_id = Column(Integer)
-    uniqname = Column(String(50))
-
-    enrollment = relationship('Enrollment', back_populates='user')
-
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<Course(canvas_id={self.canvas_id}, sis_id={self.sis_id}, ' +
+            f'name={self.name}, account_id={self.account_id}, term_id={self.term_id}), ' +
+            f'created_at={self.created_at}, published_at={self.published_at}, ' +
+            f'workflow_state={self.workflow_state})>'
+        )
 
 
 class CourseSection(Base):
@@ -70,7 +70,10 @@ class CourseSection(Base):
     
     enrollment = relationship('Enrollment', back_populates='course_section')
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<CourseSection(canvas_id={self.canvas_id}, sis_id={self.sis_id}, name={self.name})>'
+        )
 
 
 class Enrollment(Base):
@@ -79,15 +82,19 @@ class Enrollment(Base):
     canvas_id = Column(Integer, primary_key=True)
     course_id = Column(Integer, ForeignKey('course.canvas_id'))
     course_section_id = Column(Integer, ForeignKey('course_section.canvas_id'))
-    user_id = Column(BigInteger, ForeignKey('user.canvas_id'))
+    user_id = Column(BigInteger)
     workflow_state = Column(String(25))
     role_type = Column(String(25))
 
     course = relationship('Course', back_populates='enrollment')
     course_section = relationship('CourseSection', back_populates='enrollment')
-    user = relationship('User', back_populates='enrollment')
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<Enrollment(canvas_id={self.canvas_id}, course_id={self.course_id}, '
+            f'course_section_id={self.course_section_id}, user_id={self.user_id}, '
+            f'workflow_state={self.workflow_state}, role_type={self.role_type})>'
+        )
 
 
 class CanvasCourseUsage(Base):
@@ -101,7 +108,12 @@ class CanvasCourseUsage(Base):
 
     course = relationship('Course', back_populates='canvas_course_usage')
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<CanvasCourseUsage(id={self.id}, course_id={self.course_id}, '
+            f'views={self.views}, participations={self.participations}, '
+            f'date={self.date})>'
+        )
 
 
 class MivideoMediaStartedHourly(Base):
@@ -113,7 +125,12 @@ class MivideoMediaStartedHourly(Base):
     event_time_utc_latest = Column(DateTime(timezone=True))
     event_count = Column(BigInteger)
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<MivideoMediaStartedHourly(id={self.id}, event_hour_utc={self.event_hour_utc}, '
+            f'course_id={self.course_id}, event_time_utc_latest={self.event_time_utc_latest}, '
+            f'event_count={self.event_count})>'
+        )
 
 
 class JobRun(Base):
@@ -126,7 +143,11 @@ class JobRun(Base):
 
     data_source_status = relationship('DataSourceStatus', back_populates='job_run')
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<JobRun(id={self.id}, job_name={self.job_name}, '
+            f'started_at={self.started_at}, finished_at={self.finished_at})>'
+        )
 
 
 class DataSourceStatus(Base):
@@ -139,4 +160,8 @@ class DataSourceStatus(Base):
 
     job_run = relationship('JobRun', back_populates='data_source_status')
 
-#   def __repr__(self):
+    def __repr__(self):
+        return (
+            f'<DataSourceStatus(id={self.id}, data_source_name={self.data_source_name}, '
+            f'data_updated_at={self.data_updated_at}, job_run_id={self.job_run_id})>'
+        )
