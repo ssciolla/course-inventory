@@ -8,7 +8,7 @@ import json
 logger = logging.getLogger(__name__)
 
 
-class CanvasCourseUsage:
+class CourseUsageGatherer:
     def __init__(self, canvas_url, canvas_token, retry_attempts, course_ids):
         self.canvas_url = canvas_url
         self.canvas_token = canvas_token

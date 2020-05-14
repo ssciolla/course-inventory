@@ -8,14 +8,17 @@ import pandas as pd
 import psycopg2
 from psycopg2.extensions import connection
 from requests import Response
+from sqlalchemy.orm import sessionmaker
 from umich_api.api_utils import ApiUtil
 
 # local libraries
 from course_inventory.async_enroll_gatherer import AsyncEnrollGatherer
-from course_inventory.canvas_course_usage import CanvasCourseUsage
+from course_inventory.canvas_course_usage import CourseUsageGatherer
 from course_inventory.gql_queries import queries as QUERIES
 from course_inventory.published_date import FetchPublishedDate
 from db.db_creator import DBCreator
+from db.db_sync import DBSync, prepare_data_types_for_orm
+from db.schema import CanvasCourseUsage
 from environ import ENV
 from vocab import ValidDataSourceName
 
@@ -240,8 +243,8 @@ def run_course_inventory() -> Sequence[Dict[str, Union[ValidDataSourceName, pd.T
                                                errors='coerce')
 
     logger.info("*** Fetching the canvas course usage data ***")
-    canvas_course_usage = CanvasCourseUsage(CANVAS_URL, CANVAS_TOKEN, MAX_REQ_ATTEMPTS, course_available_ids)
-    canvas_course_usage_df = canvas_course_usage.get_canvas_course_views_participation_data()
+    course_usage_gatherer = CourseUsageGatherer(CANVAS_URL, CANVAS_TOKEN, MAX_REQ_ATTEMPTS, course_available_ids)
+    canvas_course_usage_df = course_usage_gatherer.get_canvas_course_views_participation_data()
 
     # Gather enrollment and section data
     course_ids = course_df['canvas_id'].to_list()
@@ -320,38 +323,34 @@ def run_course_inventory() -> Sequence[Dict[str, Union[ValidDataSourceName, pd.T
     # Initialize DBCreator object
     db_creator_obj = DBCreator(INVENTORY_DB)
 
-    # Empty records from Canvas data tables in database
-    logger.info('Emptying Canvas data tables in DB')
-    db_creator_obj.drop_records(
-        ['course', 'canvas_course_usage', 'course_section', 'enrollment', 'term']
+    # Insert gathered dimensional data
+    DBSync(term_df.to_dict(orient='records'), 'Term', db_creator_obj).sync()
+    DBSync(course_df.to_dict(orient='records'), 'Course', db_creator_obj).sync()
+    DBSync(section_df.to_dict(orient='records'), 'CourseSection', db_creator_obj).sync()
+    DBSync(enrollment_df.to_dict(orient='records'), 'Enrollment', db_creator_obj).sync()
+
+    # Drop and insert Canvas Course Usage data
+    Session = sessionmaker(bind=db_creator_obj.engine)
+    session = Session()
+
+    logger.info('Dropping records in canvas_course_usage table')
+    session.query(CanvasCourseUsage).delete(synchronize_session=False)
+    session.commit()
+    logger.info(f'Dropped records in canvas_course_usage table in {db_creator_obj.db_name}')
+
+    logger.info(f'Inserting {len(canvas_course_usage_df)} canvas_course_usage records to DB')
+    session.bulk_insert_mappings(
+        CanvasCourseUsage,
+        [prepare_data_types_for_orm(record) for record in canvas_course_usage_df.to_dict(orient='records')]
     )
-
-    # Insert gathered data
-    logger.info(f'Inserting {num_term_records} term records to DB')
-    term_df.to_sql('term', db_creator_obj.engine, if_exists='append', index=False)
-    logger.info(f'Inserted data into term table in {db_creator_obj.db_name}')
-
-    logger.info(f'Inserting {num_course_records} course records to DB')
-    course_df.to_sql('course', db_creator_obj.engine, if_exists='append', index=False)
-    logger.info(f'Inserted data into course table in {db_creator_obj.db_name}')
-
-    logger.info(f'Inserting {num_section_records} section records to DB')
-    section_df.to_sql('course_section', db_creator_obj.engine, if_exists='append', index=False)
-    logger.info(f'Inserted data into section table in {db_creator_obj.db_name}')
-
-    logger.info(f'Inserting {num_enrollment_records} enrollment records to DB')
-    enrollment_df.to_sql('enrollment', db_creator_obj.engine, if_exists='append', index=False)
-    logger.info(f'Inserted data into enrollment table in {db_creator_obj.db_name}')
-
-    logger.info(f"Inserting {num_canvas_usage_records} canvas_course_usage records to DB")
-    canvas_course_usage_df.to_sql('canvas_course_usage', db_creator_obj.engine, if_exists='append', index=False)
-    logger.info(f'Inserted data into canvas_course_usage table in {db_creator_obj.db_name}')
+    session.commit()
+    logger.info(f'Updated data in canvas_course_usage table in {db_creator_obj.db_name}')
 
     return [canvas_data_source, udw_data_source]
 
 
 # Main Program
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     logging.basicConfig(level=ENV.get('LOG_LEVEL', 'DEBUG'))
     run_course_inventory()
