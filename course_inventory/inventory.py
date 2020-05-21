@@ -177,6 +177,12 @@ def gather_course_data_from_api(account_id: int, term_ids: Sequence[int]) -> pd.
 
     course_df = pd.DataFrame(course_dicts_with_students)
     course_df = course_df.drop(['total_students'], axis='columns')
+
+    c_series = course_df.iloc[50].copy()
+    c_series['name'] = '2nd Year Potions'
+    course_df = course_df.append(c_series)
+    logger.info(course_df.iloc[-1])
+
     orig_course_count = len(course_df)
     course_df = course_df.drop_duplicates(subset=['canvas_id'], keep='last')
     logger.info(f'{orig_course_count - len(course_df)} course records were dropped')
